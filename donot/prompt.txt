@@ -1,0 +1,37 @@
+Explain step-by-step how to implement a complete CI/CD pipeline for the given application using Git, Maven, Jenkins, Docker, and Kubernetes, following a practical approach similar to a real project.
+
+The explanation should follow this exact workflow:
+Git → Jenkins → Maven → Docker → Docker Hub → Kubernetes
+
+Include detailed steps exactly like a real implementation:
+
+1. Create project structure and basic application code
+2. Initialize Git repository and push code to GitHub
+3. Configure Jenkins pipeline with stages:
+
+   * Clone Repository
+   * Build with Maven
+   * Build Docker Image
+   * Push to Docker Hub
+   * Deploy to Kubernetes
+4. Maven configuration to generate executable JAR (include fix for "no main manifest attribute")
+5. Dockerfile creation using correct JAR name (include fix for wrong jar path error)
+6. Docker build and push commands
+7. Kubernetes deployment.yaml and service.yaml (NodePort)
+8. kubectl commands to deploy and manage pods and services
+9. Verification steps:
+
+   * kubectl get pods
+   * kubectl get svc
+   * kubectl logs
+   * Browser access using NodePort
+10. Common real-world errors and fixes:
+
+* Git not recognized
+* Maven dependency/cache errors
+* Dockerfile jar mismatch
+* Port already allocated
+* CrashLoopBackOff
+* Kubernetes authentication issues
+
+Explain each step clearly with commands and code snippets, just like building and debugging a real project from start to finish.
