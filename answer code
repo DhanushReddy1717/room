@@ -1,0 +1,305 @@
+#Project Folder Structure
+ecommerce-order-system/
+│
+├── src/
+│   ├── main/
+│   │   ├── java/com/example/order/
+│   │   │   ├── controller/
+│   │   │   │   └── OrderController.java
+│   │   │   ├── service/
+│   │   │   │   └── OrderService.java
+│   │   │   ├── model/
+│   │   │   │   └── Order.java
+│   │   │   └── OrderApplication.java
+│   │   └── resources/
+│   │       └── application.properties
+│
+│   └── test/
+│       └── java/com/example/order/
+│           └── OrderServiceTest.java
+│
+├── Dockerfile
+├── pom.xml
+├── Jenkinsfile
+├── kubernetes/
+│   ├── deployment.yaml
+│   └── service.yaml
+│
+└── README.md
+
+#Core Java Code (Spring Boot + Maven)
+# create OrderApplication.java
+package com.example.order;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+@SpringBootApplication
+public class OrderApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(OrderApplication.class, args);
+    }
+}
+
+# create model/Order.java
+package com.example.order.model;
+
+public class Order {
+    private int id;
+    private String product;
+    private int quantity;
+
+    public Order(int id, String product, int quantity) {
+        this.id = id;
+        this.product = product;
+        this.quantity = quantity;
+    }
+
+    public int getId() { return id; }
+    public String getProduct() { return product; }
+    public int getQuantity() { return quantity; }
+}
+
+
+#create service/OrderService.java
+package com.example.order.service;
+
+import com.example.order.model.Order;
+import org.springframework.stereotype.Service;
+
+@Service
+public class OrderService {
+
+    public String processOrder(Order order) {
+        if (order.getQuantity() <= 0) {
+            return "Order Failed";
+        }
+        return "Order Success";
+    }
+}
+
+
+# create controller/OrderController.java
+package com.example.order.controller;
+
+import com.example.order.model.Order;
+import com.example.order.service.OrderService;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/orders")
+public class OrderController {
+
+    private final OrderService service;
+
+    public OrderController(OrderService service) {
+        this.service = service;
+    }
+
+    @PostMapping
+    public String placeOrder(@RequestBody Order order) {
+        return service.processOrder(order);
+    }
+}
+
+
+#application.properties
+server.port=8080
+
+
+#3. JUnit Test
+#create OrderServiceTest.java
+package com.example.order;
+
+import com.example.order.model.Order;
+import com.example.order.service.OrderService;
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
+
+public class OrderServiceTest {
+
+    OrderService service = new OrderService();
+
+    @Test
+    void testSuccess() {
+        Order order = new Order(1, "Phone", 2);
+        assertEquals("Order Success", service.processOrder(order));
+    }
+
+    @Test
+    void testFailure() {
+        Order order = new Order(2, "Laptop", 0);
+        assertEquals("Order Failed", service.processOrder(order));
+    }
+}
+
+#4. Maven Configuration
+# create pom.xml
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.example</groupId>
+    <artifactId>order-system</artifactId>
+    <version>1.0</version>
+
+    <dependencies>
+        <!-- Spring Boot -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+            <version>3.2.0</version>
+        </dependency>
+
+        <!-- Test -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <version>3.2.0</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <version>3.2.0</version>
+            </plugin>
+        </plugins>
+    </build>
+</project>
+
+
+
+#5. Docker Setup
+#Dockerfile
+FROM openjdk:17-jdk-slim
+
+WORKDIR /app
+
+COPY target/order-system-1.0.jar app.jar
+
+ENTRYPOINT ["java", "-jar", "app.jar"]
+
+
+
+#6. Jenkins Pipeline script 
+pipeline {
+    agent any
+
+    tools {
+        maven 'Maven'
+        jdk 'JDK17'
+    }
+
+    stages {
+
+        stage('Checkout') {
+            steps {
+                git 'https://github.com/your-repo/order-system.git'
+            }
+        }
+
+        stage('Build') {
+            steps {
+                sh 'mvn clean package'
+            }
+        }
+
+        stage('Test') {
+            steps {
+                sh 'mvn test'
+            }
+        }
+
+        stage('Docker Build') {
+            steps {
+                sh 'docker build -t yourdockerhub/order-system .'
+            }
+        }
+
+        stage('Docker Push') {
+            steps {
+                withCredentials([string(credentialsId: 'docker-pass', variable: 'PASS')]) {
+                    sh 'docker login -u yourdockerhub -p $PASS'
+                    sh 'docker push yourdockerhub/order-system'
+                }
+            }
+        }
+
+        stage('Deploy to Kubernetes') {
+            steps {
+                sh 'kubectl apply -f kubernetes/'
+            }
+        }
+    }
+}
+
+
+#7. Kubernetes Files
+# create deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: order-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: order-app
+  template:
+    metadata:
+      labels:
+        app: order-app
+    spec:
+      containers:
+        - name: order-app
+          image: yourdockerhub/order-system
+          ports:
+            - containerPort: 8080
+
+
+
+# create service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: order-service
+spec:
+  type: NodePort
+  selector:
+    app: order-app
+  ports:
+    - port: 80
+      targetPort: 8080
+      nodePort: 30007
+
+
+
+8. Complete Step-by-Step Commands
+🔹 Step 1: Create Project
+mvn archetype:generate
+cd order-system
+🔹 Step 2: Build Project
+mvn clean package
+🔹 Step 3: Run Locally
+java -jar target/order-system-1.0.jar
+
+Test:
+
+POST http://localhost:8080/orders
+🔹 Step 4: Docker Commands
+docker build -t order-system .
+docker run -p 8080:8080 order-system
+🔹 Step 5: Push to Docker Hub
+docker tag order-system yourdockerhub/order-system
+docker push yourdockerhub/order-system
+🔹 Step 6: Kubernetes Deploy
+kubectl apply -f kubernetes/deployment.yaml
+kubectl apply -f kubernetes/service.yaml
+
+Check:
+
+kubectl get pods
+kubectl get svc
